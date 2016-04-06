@@ -19,32 +19,36 @@ package skinsrestorer.shared.utils;
 
 import java.util.UUID;
 
-import skinsrestorer.libs.org.json.simple.parser.ParseException;
+import net.md_5.bungee.api.ChatColor;
 import skinsrestorer.shared.format.Profile;
 import skinsrestorer.shared.format.SkinProfile;
 import skinsrestorer.shared.storage.LocaleStorage;
+import skinsrestorer.shared.utils.SkinFetchUtils.SkinFetchFailedException.Reason;
 
 public class SkinFetchUtils {
 
-	public static SkinProfile fetchSkinProfile(String name, UUID uuid) throws SkinFetchFailedException {
+	public static SkinProfile fetchSkinProfile(final String name, final UUID uuid) throws SkinFetchFailedException {
 		try {
 			if (uuid != null) {
-				try {
-					SkinProfile skinprofile = MojangAPI.getSkinProfile(uuid.toString());
-					if (skinprofile.getName().equalsIgnoreCase(name)) {
-						return skinprofile;
-					}
-				} catch (SkinFetchFailedException ex) {
+				SkinProfile skinprofile = MojangAPI.getSkinProfile(uuid.toString(), name);
+				if (skinprofile.getName().equalsIgnoreCase(name)) {
+					return skinprofile;
 				}
 			}
 			Profile profile = MojangAPI.getProfile(name);
-			return MojangAPI.getSkinProfile(profile.getId());
-		} catch (ParseException e) {
-			throw new SkinFetchFailedException(SkinFetchFailedException.Reason.SKIN_RECODE_FAILED);
-		} catch (SkinFetchFailedException sffe) {
-			throw sffe;
-		} catch (Throwable t) {
-			throw new SkinFetchFailedException(t);
+
+			if (profile == null)
+				throw new SkinFetchFailedException(Reason.NO_PREMIUM_PLAYER);
+
+			SkinProfile sp = MojangAPI.getSkinProfile(profile.getId(), name);
+
+			if (sp == null)
+				throw new SkinFetchFailedException(Reason.MCAPI_PROBLEM);
+
+			return sp;
+
+		} catch (Exception e) {
+			throw new SkinFetchFailedException(e);
 		}
 	}
 
@@ -55,12 +59,13 @@ public class SkinFetchUtils {
 		private Reason reason;
 
 		public SkinFetchFailedException(Reason reason) {
-			super(reason.getExceptionCause()); 
+			super(reason.getExceptionCause());
 			this.reason = reason;
 		}
 
 		public SkinFetchFailedException(Throwable exception) {
-			super(Reason.GENERIC_ERROR.getExceptionCause()+": "+exception.getClass().getName()+": "+exception.getMessage(), exception); 
+			super(Reason.GENERIC_ERROR.getExceptionCause() + ": " + exception.getClass().getName() + ": "
+					+ exception.getMessage(), exception);
 			this.reason = Reason.GENERIC_ERROR;
 		}
 
@@ -69,12 +74,14 @@ public class SkinFetchUtils {
 		}
 
 		public static enum Reason {
-			NO_PREMIUM_PLAYER(LocaleStorage.getInstance().SKIN_FETCH_FAILED_NO_PREMIUM_PLAYER),
-			NO_SKIN_DATA(LocaleStorage.getInstance().SKIN_FETCH_FAILED_NO_SKIN_DATA),
-			SKIN_RECODE_FAILED(LocaleStorage.getInstance().SKIN_FETCH_FAILED_PARSE_FAILED),
-			RATE_LIMITED(LocaleStorage.getInstance().SKIN_FETCH_FAILED_RATE_LIMITED),
-			GENERIC_ERROR(LocaleStorage.getInstance().SKIN_FETCH_FAILED_ERROR),
-			MCAPI_FAILED(LocaleStorage.getInstance().SKIN_FETCH_FAILED_ERROR);
+			NO_PREMIUM_PLAYER(c(LocaleStorage.getInstance().SKIN_FETCH_FAILED_NO_PREMIUM_PLAYER)), NO_SKIN_DATA(
+					c(LocaleStorage.getInstance().SKIN_FETCH_FAILED_NO_SKIN_DATA)), SKIN_RECODE_FAILED(
+							c(LocaleStorage.getInstance().SKIN_FETCH_FAILED_PARSE_FAILED)), RATE_LIMITED(c(LocaleStorage
+									.getInstance().SKIN_FETCH_FAILED_RATE_LIMITED)), GENERIC_ERROR(c(LocaleStorage
+											.getInstance().SKIN_FETCH_FAILED_ERROR)), MCAPI_FAILED(c(LocaleStorage
+													.getInstance().SKIN_FETCH_FAILED_ERROR)), MCAPI_PROBLEM(
+															c(LocaleStorage
+																	.getInstance().SKIN_FETCH_FAILED_MCAPI_PROBLEM));
 
 			private String exceptionCause;
 
@@ -86,7 +93,10 @@ public class SkinFetchUtils {
 				return exceptionCause;
 			}
 		}
-		
+
 	}
 
+	public static String c(String msg) {
+		return ChatColor.translateAlternateColorCodes('&', msg);
+	}
 }
